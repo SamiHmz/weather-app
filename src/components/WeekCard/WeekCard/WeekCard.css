@@ -1,0 +1,16 @@
+.week__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  width: 90px;
+  height: 100px;
+  border-radius: 15px;
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.week__card img {
+  height: 50px;
+  width: 50px;
+}

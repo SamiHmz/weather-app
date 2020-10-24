@@ -1,8 +1,10 @@
-import React, { useState, useEffect, Fragment } from "react";
-import { Map, Marker, Popup, TileLayer } from "react-leaflet";
+import React, { useState, useEffect } from "react";
+import WeekCard from "./components/WeekCard/WeekCard/WeekCard";
+
+//third party packages
+import { Map, TileLayer } from "react-leaflet";
 import date from "date-and-time";
 import { BoxLoading } from "react-loadingg";
-import WeekCard from "./components/WeekCard/WeekCard/WeekCard";
 
 // images
 import glass from "./img/icons/glass.svg";
@@ -13,6 +15,7 @@ import presure from "./img/icons/presure.svg";
 import eye from "./img/icons/eye.svg";
 import wind from "./img/icons/wind.svg";
 
+// Styles
 import "./App.css";
 
 function App() {
@@ -22,60 +25,70 @@ function App() {
   const [search, setSearch] = useState("");
   const [currentCity, setcurrentCity] = useState("");
   const pattern = date.compile("dddd, MMM DD YYYY");
-  const hour = date.compile("hh:mm:ss");
+
+  // fetch the weather info from the api
+  const getWeather = async (lat, long) => {
+    const apiUrl = `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${long}&units=metric&exclude=part,hourly&appid=523830cdf94ec06b2206382dbf593518`;
+    const response = await fetch(apiUrl);
+    const data = await response.json();
+    return data;
+  };
+
+  // get the latitude and longitude based on city,country name
+
+  const getLocation = async (name) => {
+    const geoApiUrl = `https://api.opencagedata.com/geocode/v1/json?q=${name}&key=d1285d79a6b1469885375e8776600430`;
+    const response = await fetch(geoApiUrl);
+    const data = await response.json();
+    return data;
+  };
+
+  // get the exact place name based on longitude and latitude
+
+  const getPlaceName = async (lat, long) => {
+    const placeUrl = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${long}&key=d1285d79a6b1469885375e8776600430`;
+    const response = await fetch(placeUrl);
+    const data = await response.json();
+    return data.results[0].formatted;
+  };
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(function ({ coords }) {
       const { latitude, longitude } = coords;
+      // set the location in the map
       SetCenter([latitude, longitude]);
-
-      const cityUrl = `https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=d1285d79a6b1469885375e8776600430`;
-      const apiUrl = `https://api.openweathermap.org/data/2.5/onecall?lat=${latitude}&lon=${longitude}&units=metric&exclude=part,hourly&appid=523830cdf94ec06b2206382dbf593518`;
-      fetch(apiUrl)
-        .then((response) => response.json())
-        .then((result) => {
-          console.log(result);
-          SetWeather(result);
-          return fetch(cityUrl).then((response) =>
-            response.json().then((result) => {
-              console.log("city", result);
-              console.log(result.results[0].formatted);
-              setcurrentCity(result.results[0].formatted);
-              SetIsLoading(false);
-            })
-          );
-        });
+      // get the weather infos
+      getWeather(latitude, longitude)
+        .then((weather) => SetWeather(weather))
+        .then(() => {
+          // get the place name
+          getPlaceName(latitude, longitude).then((place) => {
+            setcurrentCity(place);
+            SetIsLoading(false);
+          });
+        })
+        .catch((error) => console.log(error));
     });
   }, []);
 
   const handleSearch = (e) => {
-    // get the longitude and latitude
     e.preventDefault();
-    const geoApiUrl = `https://api.opencagedata.com/geocode/v1/json?q=${search}&key=d1285d79a6b1469885375e8776600430`;
-    var geometry = null;
-    fetch(geoApiUrl)
-      .then((response) => response.json())
+    // get the longitude and latitude
+    getLocation(search)
       .then((result) => {
-        // get the weather
-
         const { lat, lng } = result.results[0].geometry;
+        // set the place in the map
         SetCenter([lat, lng]);
-        const apiUrl = `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lng}&units=metric&exclude=part,hourly&appid=523830cdf94ec06b2206382dbf593518`;
-        return fetch(apiUrl);
+        // get the weather
+        getWeather(lat, lng).then((weather) => SetWeather(weather));
+        //get the exact location
+        getPlaceName(lat, lng).then((place) => setcurrentCity(place));
       })
-      .then((response) => response.json())
-      .then((result) => {
-        console.log(result);
-        SetWeather(result);
-        setSearch("");
-        const cityUrl = `https://api.opencagedata.com/geocode/v1/json?q=${result.lat}+${result.lon}&key=d1285d79a6b1469885375e8776600430`;
-        return fetch(cityUrl);
-      })
-      .then((response) => response.json())
-      .then((result) => {
-        setcurrentCity(result.results[0].formatted);
-      })
-      .catch((error) => alert("please enter a valid city or country name"));
+      .then(setSearch(""))
+      .catch((error) => {
+        console.log(error);
+        alert("Please enter a valid city or country name");
+      });
   };
 
   return (
@@ -102,10 +115,9 @@ function App() {
                 <h5>
                   Sunrise{" "}
                   <span className="light">
-                    {date.format(
-                      new Date(weather.current.sunrise * 1000),
-                      hour
-                    )}
+                    {new Date(
+                      weather.current.sunrise * 1000
+                    ).toLocaleTimeString()}
                   </span>
                 </h5>
               </div>
@@ -114,7 +126,9 @@ function App() {
                 <h5>
                   Sunset{" "}
                   <span className="light">
-                    {date.format(new Date(weather.current.sunset * 1000), hour)}
+                    {new Date(
+                      weather.current.sunset * 1000
+                    ).toLocaleTimeString()}
                   </span>
                 </h5>
               </div>
